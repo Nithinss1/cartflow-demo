@@ -1,0 +1,7 @@
+{
+  "name": "cartflow-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small checkout demo for a Factory bug investigation interview",
+  "scripts": { "test": "node --test" }
+}

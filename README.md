@@ -1,17 +1,25 @@
-# CartFlow Demo
+# CartFlow — Demo Checkout
 
-A fictional e-commerce checkout service for demonstrating an AI-assisted bug investigation workflow with Factory.
+A small fictional e-commerce checkout application built to demonstrate an AI-assisted bug investigation workflow. Uses Node.js (18+) with no third-party dependencies.
 
-## Run tests
+## Run locally
 
-Requires Node.js 18 or later.
+```bash
+npm start
+```
+
+Open http://localhost:3000. Enter a discount code and click **Apply**.
+
+Available codes: `SAVE10` ($10 off), `SAVE25` ($25 off), `SAVE30` ($30 off). The sample item costs $25.
+
+## Tests
 
 ```bash
 npm test
 ```
 
-## Scenario
+## Intended demo
 
-A customer reports that applying a fixed-value discount to a small cart can produce a negative checkout total. The intended business rule is that the final total must never fall below $0.
+The starter repository contains an intentionally unresolved checkout edge case. The existing tests pass but do not cover the customer-reported edge case. Create a GitHub issue reporting that applying `SAVE30` to a $25 cart produces a negative total. Ask Factory to investigate the issue, reproduce the defect, propose a fix, add a regression test, and present the changes for human review.
 
-This repository deliberately includes the bug. Do not fix it before the Factory demonstration.
+**Demo only:** No authentication, database, real payments, or production integrations. Do not use for real commerce.

@@ -1,7 +1,6 @@
 {
-  "name": "cartflow-demo",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Small checkout demo for a Factory bug investigation interview",
-  "scripts": { "test": "node --test" }
+  "name": "cartflow-demo", "version": "2.0.0", "private": true,
+  "description": "CartFlow mock checkout application for Factory SE bug investigation demo",
+  "scripts": { "start": "node server.js", "test": "node --test" },
+  "engines": { "node": ">=18" }
 }

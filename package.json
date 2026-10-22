@@ -1,6 +1,6 @@
 {
-  "name": "cartflow-demo", "version": "2.0.0", "private": true,
-  "description": "CartFlow mock checkout application for Factory SE bug investigation demo",
+  "name": "brightwell-goods-demo", "version": "2.0.0", "private": true,
+  "description": "Brightwell Goods mock checkout application for Factory SE bug investigation demo",
   "scripts": { "start": "node server.js", "test": "node --test" },
   "engines": { "node": ">=18" }
 }

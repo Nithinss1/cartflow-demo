@@ -1,4 +1,4 @@
-/** CartFlow product catalog. Prices are in USD. */
+/** Brightwell Goods product catalog. Prices are in USD. */
 const products = [
   { id: 'headphones', name: 'Wireless Headphones', variant: 'Midnight Black', price: 25, emoji: '🎧', tint: '#e9edff' },
   { id: 'speaker', name: 'Portable Speaker', variant: 'Ocean Blue', price: 40, emoji: '🔊', tint: '#e3f4fb' },

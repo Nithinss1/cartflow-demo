@@ -47,5 +47,5 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': file[1] }); res.end(data);
   });
 });
-if (require.main === module) server.listen(PORT, () => console.log(`CartFlow running at http://localhost:${PORT}`));
+if (require.main === module) server.listen(PORT, () => console.log(`Brightwell Goods running at http://localhost:${PORT}`));
 module.exports = { server };

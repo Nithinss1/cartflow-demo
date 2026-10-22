@@ -1,4 +1,4 @@
-/** CartFlow order placement. Validates cart lines against the catalog and prices the order. */
+/** Brightwell Goods order placement. Validates cart lines against the catalog and prices the order. */
 const { findProduct } = require('./catalog');
 const { calculateTotal, getDiscount } = require('./checkout');
 let nextOrderNumber = 1001;
@@ -10,6 +10,6 @@ function createOrder(lines, discountCode = null) {
     return { id: product.id, name: product.name, price: product.price, quantity: line.quantity };
   });
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  return { orderId: `CF-${nextOrderNumber++}`, items, subtotal, discount: getDiscount(discountCode), total: calculateTotal(items, discountCode) };
+  return { orderId: `BW-${nextOrderNumber++}`, items, subtotal, discount: getDiscount(discountCode), total: calculateTotal(items, discountCode) };
 }
 module.exports = { createOrder };

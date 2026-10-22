@@ -1,4 +1,4 @@
-# CartFlow — Demo Checkout
+# Brightwell Goods — Demo Checkout
 
 A small fictional e-commerce checkout application built to demonstrate an AI-assisted bug investigation workflow. Uses Node.js (18+) with no third-party dependencies.
 

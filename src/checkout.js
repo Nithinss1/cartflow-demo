@@ -1,4 +1,4 @@
-/** CartFlow checkout calculation. Prices are in USD. */
+/** Brightwell Goods checkout calculation. Prices are in USD. */
 const DISCOUNTS = { SAVE10: 10, SAVE25: 25, SAVE30: 30 };
 function getDiscount(discountCode) { return discountCode ? (DISCOUNTS[discountCode] || 0) : 0; }
 function calculateTotal(items, discountCode = null) {

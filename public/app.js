@@ -43,7 +43,7 @@ $('checkout').addEventListener('click', async () => {
   $('checkout').disabled = true;
   setNotice('Placing your order...');
   try {
-    const items = [...cart].map(([productId, quantity]) => ({ productId, quantity }));
+    const items = [...cart].map(([id, quantity]) => ({ id, quantity }));
     const response = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items, discountCode: applied.code }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Checkout failed');

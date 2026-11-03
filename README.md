@@ -10,7 +10,7 @@ npm start
 
 Open http://localhost:3000. Add products to your bag, optionally apply a discount code, and click **Checkout**.
 
-Available codes: `SAVE10` ($10 off), `SAVE25` ($25 off), `SAVE30` ($30 off).
+Available codes: `SAVE10` ($10 off), `SAVE25` ($25 off), `SAVE30` ($30 off), `WELCOME15` (15% off), `VIP20` (20% off).
 
 ## Tests
 

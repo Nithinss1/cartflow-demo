@@ -1,0 +1,208 @@
+name: QA
+
+# Informational check. It posts one QA report comment per PR and marks the job failed when
+# the report has failing flows, but it is not meant to be a required status check. Leave it
+# out of branch protection unless QA failures should block merges.
+#
+# With failure_learning: auto_commit, QA may push a bot commit with skill updates to the PR
+# branch. Pushes made with GITHUB_TOKEN do not start new workflow runs, so that commit has no
+# checks of its own, and the author must pull before pushing again.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to run QA against'
+        required: true
+
+concurrency:
+  group: qa-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  qa:
+    # Fork PRs get no secrets on pull_request, so QA cannot run for them.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "::error::pr_number must be a number"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
+          SAME_REPO=$(jq -r '.head.repo.full_name == .base.repo.full_name' "$RUNNER_TEMP/pr.json")
+          if [ "$SAME_REPO" != "true" ]; then
+            echo "::error::Refusing to run QA with secrets against a fork PR."
+            exit 1
+          fi
+          {
+            echo "number=$PR_NUMBER"
+            echo "ref=$(jq -r .head.ref "$RUNNER_TEMP/pr.json")"
+            echo "base=$(jq -r .base.ref "$RUNNER_TEMP/pr.json")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.pr.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Ensure QA skill is present
+        id: skills
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base }}
+        run: |
+          if [ -f .factory/skills/qa/SKILL.md ]; then echo "from_base=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "::notice::This branch predates the QA skill; using the copy from origin/$BASE_REF."
+          git checkout "origin/$BASE_REF" -- .factory/skills/qa .factory/skills/qa-web .factory/skills/qa-api .factory/settings.json scripts/apply-qa-skill-updates.js
+          echo "from_base=true" >> "$GITHUB_OUTPUT"
+
+      - name: Read QA config toggles
+        id: cfg
+        run: |
+          CFG=.factory/skills/qa/config.yaml
+          flag() { if grep -Eq "$1" "$CFG"; then echo true; else echo false; fi; }
+          {
+            echo "imagemagick=$(flag '^imagemagick:[[:space:]]*true')"
+            echo "video=$(flag '^video_evidence:[[:space:]]*true')"
+            echo "compose=$(flag '^[[:space:]]+compose:[[:space:]]*true')"
+            echo "auto_commit=$(flag '^failure_learning:[[:space:]]*auto_commit')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install ImageMagick
+        if: steps.cfg.outputs.imagemagick == 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+          # Ubuntu ships ImageMagick 6, which has `convert` but no `magick` entry point.
+          command -v magick || sudo ln -s "$(command -v convert)" /usr/local/bin/magick
+
+      - name: Install ffmpeg
+        if: steps.cfg.outputs.video == 'true' || steps.cfg.outputs.compose == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install droid CLI
+        run: |
+          curl -fsSL https://app.factory.ai/cli | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.factory/bin" >> "$GITHUB_PATH"
+
+      - name: Install droid-control and browser driver
+        run: |
+          droid plugin marketplace add https://github.com/Factory-AI/factory-plugins
+          droid plugin install droid-control@factory-plugins --scope project
+          droid plugin list --scope project | grep -q 'droid-control@factory-plugins'
+          command -v agent-browser || npm install -g agent-browser
+          agent-browser install --with-deps
+
+      - name: Run QA
+        id: qa
+        continue-on-error: true
+        timeout-minutes: 18
+        env:
+          FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+          QA_EVIDENCE_TOKEN: ${{ secrets.QA_EVIDENCE_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+          CI: 'true'
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BASE_REF: ${{ steps.pr.outputs.base }}
+          VIDEO: ${{ steps.cfg.outputs.video }}
+          COMPOSE: ${{ steps.cfg.outputs.compose }}
+        run: |
+          set -o pipefail
+          mkdir -p "qa-results/$RUN_ID"
+          PROMPT="You are running in a non-interactive CI environment. There is NO human available. Do NOT use AskUser, do NOT wait for confirmations, do NOT pause for input. Run the qa skill for pull request #${PR_NUMBER}. The diff base is origin/${BASE_REF}: use git diff origin/${BASE_REF}...HEAD to find what changed. Use RUN_ID=${RUN_ID} and save evidence under qa-results/${RUN_ID}/. Do not edit repository files; write only under qa-results/. Write the final report to qa-results/report.md."
+          if [ "$VIDEO" = "true" ]; then PROMPT="$PROMPT Use droid-control Capture and upload video evidence per the qa skill's Evidence Capture rules."; fi
+          if [ "$COMPOSE" = "true" ]; then PROMPT="$PROMPT Run droid-control Compose for each captured flow before upload."; fi
+          droid exec --auto high "$PROMPT" 2>&1 | tee qa-output.txt
+
+      - name: Apply skill updates from QA
+        id: apply-updates
+        if: >-
+          !cancelled() && steps.cfg.outputs.auto_commit == 'true' &&
+          steps.qa.outcome != 'skipped' && hashFiles('qa-results/skill-updates.json') != ''
+        run: node scripts/apply-qa-skill-updates.js qa-results/skill-updates.json
+
+      - name: Commit skill updates
+        if: '!cancelled() && steps.apply-updates.outcome == ''success'' && steps.skills.outputs.from_base == ''false'''
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.ref }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if git diff --quiet -- .factory/skills/; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u -- .factory/skills/
+          git commit -m "chore(qa): update failure catalog from QA run #${RUN_NUMBER}"
+          git push origin "HEAD:${HEAD_REF}"
+
+      - name: Upload QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-results-pr${{ steps.pr.outputs.number }}-${{ github.run_attempt }}
+          path: |
+            qa-results/
+            qa-output.txt
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Post QA report as PR comment
+        if: "!cancelled() && steps.pr.outputs.number != ''"
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- qa-report -->';
+            const fence = '`'.repeat(3);
+            let body;
+            if (fs.existsSync('qa-results/report.md')) {
+              body = fs.readFileSync('qa-results/report.md', 'utf8').trim();
+            } else {
+              const out = fs.existsSync('qa-output.txt') ? fs.readFileSync('qa-output.txt', 'utf8').slice(-50000) : 'No output captured.';
+              body = ':no_entry: QA did not produce a report. Check the workflow run.\n\n<details><summary>QA output (tail)</summary>\n\n' + fence + '\n' + out + '\n' + fence + '\n\n</details>';
+            }
+            if (!body.startsWith('## QA Report')) body = '## QA Report\n\n' + body;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            body = `${marker}\n${body}\n\n---\n[Workflow run](${runUrl}) · Screenshots, GIFs, and logs are in the run's qa-results artifact.`;
+            if (body.length > 65000) body = body.slice(0, 64000) + '\n\n_Report truncated. See the artifact for the full report._';
+            const issue_number = Number(process.env.PR_NUMBER);
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.user && c.user.login === 'github-actions[bot]' && c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number, body });
+            }
+
+      - name: Reflect QA result (informational)
+        if: '!cancelled()'
+        env:
+          QA_OUTCOME: ${{ steps.qa.outcome }}
+        run: |
+          if [ ! -f qa-results/report.md ]; then echo "::error::QA did not produce a report (QA step outcome: $QA_OUTCOME)."; exit 1; fi
+          if grep -Eq '^\|.*:no_entry: BLOCKED' qa-results/report.md; then echo "::warning::The QA report has blocked flows. See the QA comment on the PR."; fi
+          if grep -Eq '^\|.*:x: FAIL' qa-results/report.md; then echo "::error::The QA report has failing flows. See the QA comment on the PR."; exit 1; fi
+          echo "QA report has no failing flows."

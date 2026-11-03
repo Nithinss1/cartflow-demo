@@ -1,0 +1,23 @@
+# install-qa questionnaire progress (resume support)
+platform: github
+completed_categories: [default_target, personas, critical_flows, external_services, cleanup, imagemagick, ci_integration, failure_learning]
+default_target:
+  env: local
+  url: http://localhost:3000
+  strategy: local-dev-server
+  restrictions: []
+personas:
+  - name: guest
+    description: Anonymous shopper (no auth exists)
+critical_flows: confirmed-as-proposed
+external_services: none-detected
+cleanup:
+  strategy: none
+  notes: Orders are in memory; restarting the server resets state.
+imagemagick: true
+ci:
+  generate_workflow: true
+  required: false
+  video_evidence: false
+  compose: false
+failure_learning: auto_commit

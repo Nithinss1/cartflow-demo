@@ -1,0 +1,63 @@
+project: Brightwell Goods (cartflow-demo)
+platform: github
+imagemagick: true
+video_evidence: false # record interactive flows through droid-control
+droid_control:
+  plugin: droid-control@factory-plugins
+  compose: false # single runtime toggle for optional edited MP4 output
+
+environments:
+  local:
+    # If port 3000 is busy, use another port consistently in the url, start_command, and ready_check.
+    url: http://localhost:3000
+    start_command: 'PORT=3000 npm start'
+    ready_check: 'curl -sf http://localhost:3000/api/products'
+    ready_log_line: 'Brightwell Goods running at http://localhost:3000'
+    restrictions:
+      - 'Always start the server from the checked-out PR branch. Never test a remote deployment.'
+      - 'No real payments, accounts, or external services exist; every order is in-memory demo data.'
+
+default_target: local
+
+auth:
+  method: none
+  provider: none
+  notes: 'The storefront and API have no login. Every request is anonymous.'
+
+personas:
+  - name: guest
+    description: 'Anonymous shopper. Browses products, manages the bag, applies promo codes, and checks out.'
+    credentials_source: none
+    test_focus: ['catalog', 'bag management', 'discount codes', 'checkout', 'order confirmation']
+    cannot_do:
+      - 'Place an order with an empty bag (Checkout must be disabled)'
+      - 'Get a negative total or a discount larger than the subtotal'
+      - 'Apply an unknown discount code'
+
+apps:
+  web:
+    description: 'Storefront UI in public/, served by server.js, backed by the pricing logic in src/.'
+    path_patterns: ['public/**', 'server.js', 'src/**']
+    skill: qa-web
+    test_tool: agent-browser
+    build_command: ''
+  api:
+    description: 'JSON API in server.js (/api/products, /api/discount, /api/orders) and the logic in src/.'
+    path_patterns: ['server.js', 'src/**']
+    skill: qa-api
+    test_tool: curl
+    build_command: ''
+
+feature_flags:
+  provider: none
+  dashboard_url: ''
+  how_to_override: 'Not applicable.'
+
+integrations: {}
+
+cleanup:
+  auto_cleanup: true
+  strategy: none
+  instructions: 'Orders and order numbers live in memory. Stop the server at the end of the run; restarting resets all state.'
+
+failure_learning: auto_commit

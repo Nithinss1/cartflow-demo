@@ -10,6 +10,6 @@ function createOrder(lines, discountCode = null) {
     return { id: product.id, name: product.name, price: product.price, quantity: line.quantity };
   });
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  return { orderId: `BW-${nextOrderNumber++}`, items, subtotal, discount: getDiscount(discountCode), total: calculateTotal(items, discountCode) };
+  return { orderId: `BW-${nextOrderNumber++}`, items, subtotal, discount: getDiscount(discountCode, subtotal), total: calculateTotal(items, discountCode) };
 }
 module.exports = { createOrder };

@@ -2,7 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { products } = require('./src/catalog');
-const { getDiscount, isPercentCode } = require('./src/checkout');
+const { getDiscount, getPercentOff, isPercentCode, isValidCode } = require('./src/checkout');
 const { createOrder } = require('./src/orders');
 const PORT = Number(process.env.PORT || 3000);
 const files = { '/': ['index.html', 'text/html; charset=utf-8'], '/styles.css': ['styles.css', 'text/css; charset=utf-8'], '/app.js': ['app.js', 'application/javascript; charset=utf-8'] };
@@ -22,9 +22,10 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/api/discount') {
     readJson(req, ({ code = '' }) => {
       const normalized = String(code).trim().toUpperCase();
-      const discount = getDiscount(normalized);
-      if (!discount) { sendJson(res, 404, { error: 'That discount code is not valid' }); return; }
-      sendJson(res, 200, { code: normalized, discount, percent: isPercentCode(normalized) });
+      if (!isValidCode(normalized)) { sendJson(res, 404, { error: 'That discount code is not valid' }); return; }
+      // The cart subtotal is not known here, so percentage codes return the percentage and the client prices it.
+      const percent = isPercentCode(normalized);
+      sendJson(res, 200, { code: normalized, discount: percent ? getPercentOff(normalized) : getDiscount(normalized), percent });
     });
     return;
   }

@@ -39,3 +39,18 @@ test('storefront checkout places an order after a discount code is applied', asy
   assert.match($('order-id').textContent, /^BW-\d+$/);
   assert.equal($('order-total').textContent, '$79.00');
 });
+
+test('storefront checkout places an order after a percentage discount code is applied', async () => {
+  const { $, click } = loadStorefront();
+  await waitFor(() => $('products').innerHTML !== '');
+  click({ add: 'keyboard' });
+  $('code').value = 'welcome15';
+  await $('discount-form').handlers.submit({ preventDefault() {} });
+  assert.equal($('notice').textContent, 'Discount WELCOME15 applied.');
+  assert.equal($('discount').textContent, '−$13.35');
+  assert.equal($('total').textContent, '$75.65');
+  await $('checkout').handlers.click();
+  assert.notEqual($('notice').className, 'notice error', $('notice').textContent);
+  assert.match($('order-id').textContent, /^BW-\d+$/);
+  assert.equal($('order-total').textContent, '$75.65');
+});

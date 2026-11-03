@@ -16,8 +16,9 @@ function renderCart() {
   $('cart-count').textContent = count;
   $('item-count').textContent = `${count} item${count === 1 ? '' : 's'}`;
   $('subtotal').textContent = money(subtotal);
-  $('discount').textContent = `−${money(Math.min(applied.discount, subtotal))}`;
-  $('total').textContent = money(Math.max(0, subtotal - applied.discount));
+  const discount = applied.percent ? Math.round(subtotal * applied.discount) / 100 : applied.discount;
+  $('discount').textContent = `−${money(Math.min(discount, subtotal))}`;
+  $('total').textContent = money(Math.max(0, subtotal - discount));
   $('checkout').disabled = count === 0;
 }
 function changeQuantity(id, delta) {
